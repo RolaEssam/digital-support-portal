@@ -53,3 +53,7 @@ logs/
 ### OS files ###
 .DS_Store
 Thumbs.db
+
+# Developer-specific secret configuration
+application-secret.yml
+application-secrets.yml

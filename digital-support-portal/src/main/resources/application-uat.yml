@@ -1,0 +1,36 @@
+
+spring:
+  application:
+    name: digital-support-portal
+
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT}
+      username: ${REDIS_USERNAME}
+      password: ${REDIS_PASSWORD}
+      connect-timeout: ${REDIS_CONNECT_TIMEOUT:3s}
+      ssl:
+        enabled: ${REDIS_SSL_ENABLED:true}
+
+server:
+  port: ${SERVER_PORT:8081}
+  servlet:
+    context-path: /api/authentication
+
+auth:
+  public-key:
+    rsa-key-size: ${RSA_KEY_SIZE:2048}
+    key-ttl: ${RSA_KEY_TTL:300s}
+
+  rate-limit:
+    max-requests: ${AUTH_RATE_LIMIT_MAX:20}
+    window: ${AUTH_RATE_LIMIT_WINDOW:60s}
+
+  login:
+    max-failed-attempts: ${AUTH_MAX_FAILED_ATTEMPTS:5}
+    lockout-duration: ${AUTH_LOCKOUT_DURATION:15m}
+    idle-timeout: ${AUTH_IDLE_TIMEOUT:30m}
+
+  encryption:
+    key: ${DSP_AES_KEY}
