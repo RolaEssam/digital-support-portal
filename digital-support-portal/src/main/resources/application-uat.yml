@@ -16,7 +16,7 @@ spring:
 server:
   port: ${SERVER_PORT:8081}
   servlet:
-    context-path: /
+    context-path: /api/authentication
 
 auth:
   public-key:
