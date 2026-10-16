@@ -1,4 +1,3 @@
-
 package com.scbbank.supportportal.util;
 
 import org.springframework.data.redis.core.StringRedisTemplate;

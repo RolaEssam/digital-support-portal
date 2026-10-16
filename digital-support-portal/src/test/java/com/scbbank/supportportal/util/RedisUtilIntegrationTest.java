@@ -1,4 +1,3 @@
-
 package com.scbbank.supportportal.util;
 
 import org.junit.jupiter.api.Test;
