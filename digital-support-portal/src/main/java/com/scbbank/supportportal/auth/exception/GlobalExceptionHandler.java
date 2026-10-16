@@ -1,6 +1,6 @@
 package com.scbbank.supportportal.auth.exception;
 
-//import com.scbbank.supportportal.auth.dto.base.ApiResponseDto;
+import com.scbbank.supportportal.dto.base.ApiResponseDto;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.MessageSource;
@@ -25,24 +25,23 @@ public class GlobalExceptionHandler {
         this.messageSource = messageSource;
     }
 
-    // 1) كل أخطاء الـ Auth (401 / 423 / 400 ...)
-    /*@ExceptionHandler(AuthException.class)
-    public ResponseEntity<ApiResponseDto<Map<String, Object>>> handleAuth(AuthException ex) {
+    @ExceptionHandler(AuthException.class)
+    public ResponseEntity<ApiResponseDto<?>> handleAuth(AuthException ex) {
         ErrorCode ec = ex.getErrorCode();
         Map<String, Object> details = ex.getDetails();
+        String msg = message(ec, ex.getArgs());
 
-        ApiResponseDto<Map<String, Object>> body = details.isEmpty()
-                ? ApiResponseDto.error(ec.getCode(), message(ec, ex.getArgs()))
-                : ApiResponseDto.error(ec.getCode(), message(ec, ex.getArgs()), details);
-
+        ApiResponseDto<?> body;
+        if (details.isEmpty()) {
+            body = ApiResponseDto.error(ec.getCode(), msg);
+        } else {
+            body = ApiResponseDto.error(ec.getCode(), msg, details);
+        }
         return ResponseEntity.status(ec.getStatus()).body(body);
-    } */
-
+    }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ApiResponseDto<Map<String, Object>>> handleValidation(
-            MethodArgumentNotValidException ex) {
-
+    public ResponseEntity<ApiResponseDto<?>> handleValidation(MethodArgumentNotValidException ex) {
         ErrorCode ec = ex.getBindingResult().getFieldErrors().stream()
                 .findFirst()
                 .map(fe -> mapField(fe.getField(), fe.getCode()))
@@ -52,17 +51,15 @@ public class GlobalExceptionHandler {
                 .body(ApiResponseDto.error(ec.getCode(), message(ec)));
     }
 
-
     @ExceptionHandler(HttpMessageNotReadableException.class)
-    public ResponseEntity<ApiResponseDto<Map<String, Object>>> handleUnreadable(
-            HttpMessageNotReadableException ex) {
+    public ResponseEntity<ApiResponseDto<?>> handleUnreadable(HttpMessageNotReadableException ex) {
         ErrorCode ec = ErrorCode.INVALID_REQUEST_ID;
         return ResponseEntity.status(ec.getStatus())
                 .body(ApiResponseDto.error(ec.getCode(), message(ec)));
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ApiResponseDto<Map<String, Object>>> handleUnexpected(Exception ex) {
+    public ResponseEntity<ApiResponseDto<?>> handleUnexpected(Exception ex) {
         String correlationId = UUID.randomUUID().toString();
         log.error("Unexpected error [correlationId={}]", correlationId, ex);
 
@@ -76,14 +73,14 @@ public class GlobalExceptionHandler {
     private ErrorCode mapField(String field, String constraint) {
         return switch (field) {
             case "requestId" -> ErrorCode.INVALID_REQUEST_ID;
-            case "username"  -> isBlank(constraint) ? ErrorCode.USERNAME_REQUIRED : ErrorCode.INVALID_LENGTH;
-            case "password"  -> isBlank(constraint) ? ErrorCode.PASSWORD_REQUIRED : ErrorCode.INVALID_LENGTH;
+            case "username"  -> isEmptyConstraint(constraint) ? ErrorCode.USERNAME_REQUIRED : ErrorCode.INVALID_LENGTH;
+            case "password"  -> isEmptyConstraint(constraint) ? ErrorCode.PASSWORD_REQUIRED : ErrorCode.INVALID_LENGTH;
             default          -> ErrorCode.INVALID_LENGTH;
         };
     }
 
-    private boolean isBlank(String constraint) {
-        return "NotBlank".equals(constraint) || "NotNull".equals(constraint) || "NotEmpty".equals(constraint);
+    private boolean isEmptyConstraint(String c) {
+        return "NotBlank".equals(c) || "NotNull".equals(c) || "NotEmpty".equals(c);
     }
 
     private String message(ErrorCode ec, Object... args) {
