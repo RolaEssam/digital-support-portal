@@ -22,7 +22,7 @@ auth:
     key-ttl: 300s
 
   rate-limit:
-    max-requests: 20
+    max-requests: 10
     window: 60s
 
   login:
