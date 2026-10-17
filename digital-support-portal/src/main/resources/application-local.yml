@@ -23,7 +23,7 @@ auth:
 
   rate-limit:
     max-requests: 10
-    window: 1s
+    window: 60s
 
   login:
     max-failed-attempts: 5

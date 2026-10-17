@@ -94,7 +94,7 @@ class PublicKeyRateLimitServiceTest {
     }
 
     @Test
-    void shouldSetOneSecondExpiry() {
+    void shouldSetSixtySecondExpiry() {
         String ip = newClientIp();
 
         try {
@@ -104,7 +104,7 @@ class PublicKeyRateLimitServiceTest {
             Long ttl = redisUtil.getExpire(redisKey(ip, URI));
 
             assertNotNull(ttl);
-            assertTrue(ttl >= 0 && ttl <= 1);
+            assertTrue(ttl >= 0 && ttl <= 60);
 
         } finally {
             redisUtil.delete(redisKey(ip, URI));

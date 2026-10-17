@@ -20,7 +20,7 @@ public final class ApplicationConstants {
 
     // Global API rate limit
     public static final int RATE_LIMIT_MAX_REQUESTS = 10;
-    public static final int RATE_LIMIT_WINDOW_SECONDS = 1;
+    public static final int RATE_LIMIT_WINDOW_SECONDS = 60;
 
     // Encryption algorithms
     public static final String RSA_ALGORITHM = "RSA";
