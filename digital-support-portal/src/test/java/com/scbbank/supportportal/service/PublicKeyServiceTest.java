@@ -1,8 +1,10 @@
+
 package com.scbbank.supportportal.service;
 
 import com.scbbank.supportportal.util.AesGcmUtil;
 import com.scbbank.supportportal.util.RedisUtil;
 import com.scbbank.supportportal.util.RsaUtil;
+
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -11,12 +13,15 @@ import org.springframework.test.context.ActiveProfiles;
 import java.security.KeyFactory;
 import java.security.PrivateKey;
 import java.security.PublicKey;
+import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.Base64;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
 @SpringBootTest(properties = {
         "auth.encryption.key=AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8="
@@ -26,9 +31,6 @@ class PublicKeyServiceTest {
 
     @Autowired
     private PublicKeyService publicKeyService;
-
-    @Autowired
-    private LoginKeyCacheService loginKeyCacheService;
 
     @Autowired
     private AesGcmUtil aesGcmUtil;
@@ -43,22 +45,15 @@ class PublicKeyServiceTest {
         return "auth:login-key:" + requestId;
     }
 
-    private String rateLimitRedisKey(String clientId) {
-        return "auth:public-key:rate-limit:" + clientId;
-    }
-
     @Test
     void shouldGeneratePublicKeyAndStoreEncryptedPrivateKey()
             throws Exception {
 
         UUID requestId = UUID.randomUUID();
-        String clientId = UUID.randomUUID().toString();
 
         try {
             String publicKeyBase64 =
-                    publicKeyService.generatePublicKey(
-                            requestId, clientId
-                    );
+                    publicKeyService.generatePublicKey(requestId);
 
             assertNotNull(publicKeyBase64);
 
@@ -87,13 +82,9 @@ class PublicKeyServiceTest {
 
             assertNotNull(privateKey);
 
-            // Verify public/private keys belong to the same RSA pair.
-            java.security.interfaces.RSAPrivateKey rsaPrivateKey =
-                    (java.security.interfaces.RSAPrivateKey) privateKey;
-
             assertEquals(
                     ((RSAPublicKey) publicKey).getModulus(),
-                    rsaPrivateKey.getModulus()
+                    ((RSAPrivateKey) privateKey).getModulus()
             );
 
             Long ttl = redisUtil.getExpire(
@@ -105,7 +96,6 @@ class PublicKeyServiceTest {
 
         } finally {
             redisUtil.delete(privateKeyRedisKey(requestId));
-            redisUtil.delete(rateLimitRedisKey(clientId));
         }
     }
 
@@ -113,16 +103,14 @@ class PublicKeyServiceTest {
     void shouldRejectDuplicateRequestId() {
 
         UUID requestId = UUID.randomUUID();
-        String clientId = UUID.randomUUID().toString();
 
         try {
-            publicKeyService.generatePublicKey(requestId, clientId);
+            String firstPublicKey =
+                    publicKeyService.generatePublicKey(requestId);
 
             IllegalStateException exception = assertThrows(
                     IllegalStateException.class,
-                    () -> publicKeyService.generatePublicKey(
-                            requestId, clientId
-                    )
+                    () -> publicKeyService.generatePublicKey(requestId)
             );
 
             assertEquals(
@@ -130,132 +118,62 @@ class PublicKeyServiceTest {
                     exception.getMessage()
             );
 
-        } finally {
-            redisUtil.delete(privateKeyRedisKey(requestId));
-            redisUtil.delete(rateLimitRedisKey(clientId));
-        }
-    }
+            assertNotNull(firstPublicKey);
 
-    @Test
-    void shouldRejectRequestWhenRateLimitExceeded() {
-
-        UUID requestId = UUID.randomUUID();
-        String clientId = UUID.randomUUID().toString();
-
-        try {
-            redisUtil.set(
-                    rateLimitRedisKey(clientId),
-                    "20",
-                    java.time.Duration.ofSeconds(60)
-            );
-
-            IllegalStateException exception = assertThrows(
-                    IllegalStateException.class,
-                    () -> publicKeyService.generatePublicKey(
-                            requestId, clientId
-                    )
-            );
-
-            assertEquals(
-                    "Public key request rate limit exceeded",
-                    exception.getMessage()
-            );
-
-            assertNull(
+            // The original private key must not be overwritten.
+            assertNotNull(
                     redisUtil.get(privateKeyRedisKey(requestId))
             );
 
         } finally {
             redisUtil.delete(privateKeyRedisKey(requestId));
-            redisUtil.delete(rateLimitRedisKey(clientId));
         }
     }
 
     @Test
     void shouldRejectMissingRequestId() {
 
-        String clientId = UUID.randomUUID().toString();
-
-        try {
-            assertThrows(
-                    NullPointerException.class,
-                    () -> publicKeyService.generatePublicKey(
-                            null, clientId
-                    )
-            );
-        } finally {
-            redisUtil.delete(rateLimitRedisKey(clientId));
-        }
-    }
-
-    @Test
-    void shouldRejectMissingClientIdentifier() {
-
-        UUID requestId = UUID.randomUUID();
-
         assertThrows(
-                IllegalArgumentException.class,
-                () -> publicKeyService.generatePublicKey(
-                        requestId, ""
-                )
-        );
-
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> publicKeyService.generatePublicKey(
-                        requestId, null
-                )
+                NullPointerException.class,
+                () -> publicKeyService.generatePublicKey(null)
         );
     }
-
 
     @Test
     void shouldNotReturnPublicKeyWhenRedisStorageFails() {
 
-        RsaUtil rsaUtil = new RsaUtil();
+        RsaUtil rsa = new RsaUtil();
 
         javax.crypto.SecretKey testKey =
                 new javax.crypto.spec.SecretKeySpec(
-                        new byte[32], "AES"
+                        new byte[32],
+                        "AES"
                 );
 
-        AesGcmUtil aesGcmUtil = new AesGcmUtil(testKey);
+        AesGcmUtil aes = new AesGcmUtil(testKey);
 
         LoginKeyCacheService failingCache =
-                org.mockito.Mockito.mock(LoginKeyCacheService.class);
+                mock(LoginKeyCacheService.class);
 
-        PublicKeyRateLimitService allowedRateLimiter =
-                org.mockito.Mockito.mock(PublicKeyRateLimitService.class);
-
-        org.mockito.Mockito.when(
-                allowedRateLimiter.isAllowed(
-                        org.mockito.ArgumentMatchers.anyString()
-                )
-        ).thenReturn(true);
-
-        org.mockito.Mockito.when(
-                failingCache.store(
-                        org.mockito.ArgumentMatchers.any(UUID.class),
-                        org.mockito.ArgumentMatchers.anyString()
-                )
-        ).thenThrow(
-                new IllegalStateException("Redis storage unavailable")
-        );
+        when(failingCache.store(any(UUID.class), anyString()))
+                .thenThrow(
+                        new IllegalStateException(
+                                "Redis storage unavailable"
+                        )
+                );
 
         PublicKeyService service = new PublicKeyService(
-                rsaUtil,
-                aesGcmUtil,
-                failingCache,
-                allowedRateLimiter
+                rsa,
+                aes,
+                failingCache
         );
 
         assertThrows(
                 IllegalStateException.class,
-                () -> service.generatePublicKey(
-                        UUID.randomUUID(),
-                        "test-client"
-                )
+                () -> service.generatePublicKey(UUID.randomUUID())
         );
-    }
 
+        verify(failingCache, times(1))
+                .store(any(UUID.class), anyString());
+    }
 }

@@ -1,5 +1,6 @@
 package com.scbbank.supportportal.config;
 
+import com.scbbank.supportportal.constants.ApplicationConstants;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -17,7 +18,7 @@ public class EncryptionKeyConfig {
 
         if (encodedKey == null || encodedKey.isBlank()) {
             throw new IllegalStateException(
-                    "AES encryption key is not configured"
+                    "AES encryption key is missing"
             );
         }
 
@@ -25,18 +26,26 @@ public class EncryptionKeyConfig {
 
         try {
             keyBytes = Base64.getDecoder().decode(encodedKey);
+
         } catch (IllegalArgumentException e) {
             throw new IllegalStateException(
-                    "AES encryption key must be valid Base64"
+                    "AES encryption key must be valid Base64", e
             );
         }
 
-        if (keyBytes.length != 32) {
+        if (keyBytes.length !=
+                ApplicationConstants.AES_KEY_SIZE_BYTES) {
+
             throw new IllegalStateException(
-                    "AES encryption key must be 32 bytes"
+                    "AES encryption key must be "
+                            + ApplicationConstants.AES_KEY_SIZE_BYTES
+                            + " bytes"
             );
         }
 
-        return new SecretKeySpec(keyBytes, "AES");
+        return new SecretKeySpec(
+                keyBytes,
+                ApplicationConstants.AES_ALGORITHM
+        );
     }
 }

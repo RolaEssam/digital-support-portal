@@ -1,10 +1,13 @@
 package com.scbbank.supportportal.util;
 
+import com.scbbank.supportportal.constants.ApplicationConstants;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.Cipher;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.GCMParameterSpec;
+
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.security.SecureRandom;
@@ -14,84 +17,129 @@ import java.util.Objects;
 @Component
 public class AesGcmUtil {
 
-    private static final String TRANSFORMATION = "AES/GCM/NoPadding";
-    private static final int IV_LENGTH = 12;
-    private static final int TAG_LENGTH_BITS = 128;
-
     private final SecretKey secretKey;
     private final SecureRandom secureRandom = new SecureRandom();
 
     public AesGcmUtil(SecretKey secretKey) {
-        this.secretKey = Objects.requireNonNull(secretKey);
+        this.secretKey = Objects.requireNonNull(
+                secretKey,
+                "AES secret key is required"
+        );
     }
 
     public String encrypt(String plaintext) {
-        Objects.requireNonNull(plaintext, "plaintext is required");
+
+        if (plaintext == null) {
+            throw new IllegalArgumentException(
+                    "Plaintext is required"
+            );
+        }
 
         try {
-            byte[] iv = new byte[IV_LENGTH];
+            byte[] iv = new byte[
+                    ApplicationConstants.AES_IV_LENGTH_BYTES
+                    ];
+
             secureRandom.nextBytes(iv);
 
-            Cipher cipher = Cipher.getInstance(TRANSFORMATION);
+            Cipher cipher = Cipher.getInstance(
+                    ApplicationConstants.AES_GCM_TRANSFORMATION
+            );
+
+            GCMParameterSpec spec = new GCMParameterSpec(
+                    ApplicationConstants.AES_TAG_LENGTH_BITS,
+                    iv
+            );
+
             cipher.init(
                     Cipher.ENCRYPT_MODE,
                     secretKey,
-                    new GCMParameterSpec(TAG_LENGTH_BITS, iv)
+                    spec
             );
 
-            byte[] ciphertext = cipher.doFinal(
+            byte[] encrypted = cipher.doFinal(
                     plaintext.getBytes(StandardCharsets.UTF_8)
             );
 
-            // Format: Base64(12-byte IV || ciphertext || authentication tag)
-            byte[] combined = new byte[iv.length + ciphertext.length];
+            byte[] combined = ByteBuffer.allocate(
+                            iv.length + encrypted.length
+                    )
+                    .put(iv)
+                    .put(encrypted)
+                    .array();
 
-            System.arraycopy(iv, 0, combined, 0, iv.length);
-            System.arraycopy(
-                    ciphertext, 0, combined, iv.length, ciphertext.length
-            );
-
-            return Base64.getEncoder().encodeToString(combined);
+            return Base64.getEncoder()
+                    .encodeToString(combined);
 
         } catch (GeneralSecurityException e) {
-            throw new IllegalStateException("AES encryption failed", e);
+            throw new IllegalStateException(
+                    "AES encryption failed", e
+            );
         }
     }
 
-    public String decrypt(String encryptedValue) {
-        Objects.requireNonNull(encryptedValue, "encryptedValue is required");
+    public String decrypt(String encryptedBase64) {
+
+        if (encryptedBase64 == null ||
+                encryptedBase64.isBlank()) {
+            throw new IllegalArgumentException(
+                    "Encrypted data is required"
+            );
+        }
 
         try {
-            byte[] combined = Base64.getDecoder().decode(encryptedValue);
+            byte[] combined = Base64.getDecoder()
+                    .decode(encryptedBase64);
 
-            if (combined.length < IV_LENGTH + 16) {
-                throw new IllegalArgumentException("Invalid encrypted payload");
+            int ivLength =
+                    ApplicationConstants.AES_IV_LENGTH_BYTES;
+
+            int tagLength =
+                    ApplicationConstants.AES_TAG_LENGTH_BITS / 8;
+
+            if (combined.length < ivLength + tagLength) {
+                throw new IllegalArgumentException(
+                        "Invalid encrypted data"
+                );
             }
 
-            byte[] iv = new byte[IV_LENGTH];
-            byte[] ciphertext = new byte[combined.length - IV_LENGTH];
+            ByteBuffer buffer = ByteBuffer.wrap(combined);
 
-            System.arraycopy(combined, 0, iv, 0, IV_LENGTH);
-            System.arraycopy(
-                    combined, IV_LENGTH,
-                    ciphertext, 0, ciphertext.length
+            byte[] iv = new byte[ivLength];
+            buffer.get(iv);
+
+            byte[] ciphertext =
+                    new byte[buffer.remaining()];
+
+            buffer.get(ciphertext);
+
+            Cipher cipher = Cipher.getInstance(
+                    ApplicationConstants.AES_GCM_TRANSFORMATION
             );
 
-            Cipher cipher = Cipher.getInstance(TRANSFORMATION);
+            GCMParameterSpec spec = new GCMParameterSpec(
+                    ApplicationConstants.AES_TAG_LENGTH_BITS,
+                    iv
+            );
+
             cipher.init(
                     Cipher.DECRYPT_MODE,
                     secretKey,
-                    new GCMParameterSpec(TAG_LENGTH_BITS, iv)
+                    spec
             );
 
+            byte[] plaintext = cipher.doFinal(ciphertext);
+
             return new String(
-                    cipher.doFinal(ciphertext),
+                    plaintext,
                     StandardCharsets.UTF_8
             );
 
-        } catch (IllegalArgumentException | GeneralSecurityException e) {
+        } catch (GeneralSecurityException |
+                 IllegalArgumentException e) {
+
             throw new IllegalArgumentException(
-                    "Invalid or corrupted encrypted payload"
+                    "AES decryption failed", e
             );
         }
     }

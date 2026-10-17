@@ -10,11 +10,11 @@ import java.time.Duration;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
 @SpringBootTest(properties = {
-        "auth.encryption.key=AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
-        "auth.rate-limit.public-key.max-requests=20",
-        "auth.rate-limit.public-key.window-seconds=60"
+        "auth.encryption.key=AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8="
 })
 @ActiveProfiles("local")
 class PublicKeyRateLimitServiceTest {
@@ -25,90 +25,110 @@ class PublicKeyRateLimitServiceTest {
     @Autowired
     private RedisUtil redisUtil;
 
-    private String redisKey(String clientId) {
-        return "auth:public-key:rate-limit:" + clientId;
+    private static final String URI = "/api/v1/auth/public-key";
+    private static final String PREFIX = "auth:rl:";
+
+    private String newClientIp() {
+        return "test-client-" + UUID.randomUUID();
+    }
+
+    private String redisKey(String ip, String uri) {
+        return PREFIX + ip + ":" + uri;
     }
 
     @Test
-    void shouldAllowFirstTwentyRequestsAndRejectTwentyFirst() {
-
-        String clientId = UUID.randomUUID().toString();
+    void shouldAllowTenRequestsAndRejectEleventh() {
+        String ip = newClientIp();
 
         try {
-            for (int i = 1; i <= 20; i++) {
+            for (int i = 1; i <= 10; i++) {
                 assertTrue(
-                        rateLimitService.isAllowed(clientId),
+                        rateLimitService.isAllowed(ip, URI),
                         "Request " + i + " should be allowed"
                 );
             }
 
-            assertFalse(
-                    rateLimitService.isAllowed(clientId),
-                    "Request 21 should be rejected"
-            );
+            assertFalse(rateLimitService.isAllowed(ip, URI));
 
         } finally {
-            redisUtil.delete(redisKey(clientId));
+            redisUtil.delete(redisKey(ip, URI));
         }
     }
 
     @Test
-    void shouldMaintainSeparateCountersForDifferentClients() {
-
-        String clientA = UUID.randomUUID().toString();
-        String clientB = UUID.randomUUID().toString();
+    void shouldMaintainSeparateCountersForDifferentIps() {
+        String ipA = newClientIp();
+        String ipB = newClientIp();
 
         try {
-            for (int i = 0; i < 20; i++) {
-                assertTrue(rateLimitService.isAllowed(clientA));
+            for (int i = 0; i < 10; i++) {
+                assertTrue(rateLimitService.isAllowed(ipA, URI));
             }
 
-            assertFalse(rateLimitService.isAllowed(clientA));
-            assertTrue(rateLimitService.isAllowed(clientB));
+            assertFalse(rateLimitService.isAllowed(ipA, URI));
+            assertTrue(rateLimitService.isAllowed(ipB, URI));
 
         } finally {
-            redisUtil.delete(redisKey(clientA));
-            redisUtil.delete(redisKey(clientB));
+            redisUtil.delete(redisKey(ipA, URI));
+            redisUtil.delete(redisKey(ipB, URI));
         }
     }
 
     @Test
-    void shouldAssignExpiryToRateLimitKey() {
-
-        String clientId = UUID.randomUUID().toString();
+    void shouldMaintainSeparateCountersForDifferentUris() {
+        String ip = newClientIp();
+        String loginUri = "/api/v1/auth/login";
 
         try {
-            assertTrue(rateLimitService.isAllowed(clientId));
+            for (int i = 0; i < 10; i++) {
+                assertTrue(rateLimitService.isAllowed(ip, URI));
+            }
 
-            Long ttl = redisUtil.getExpire(redisKey(clientId));
+            assertFalse(rateLimitService.isAllowed(ip, URI));
+            assertTrue(rateLimitService.isAllowed(ip, loginUri));
+
+        } finally {
+            redisUtil.delete(redisKey(ip, URI));
+            redisUtil.delete(redisKey(ip, loginUri));
+        }
+    }
+
+    @Test
+    void shouldSetOneSecondExpiry() {
+        String ip = newClientIp();
+
+        try {
+            assertTrue(rateLimitService.isAllowed(ip, URI));
+
+            // Redis getExpire returns whole seconds.
+            Long ttl = redisUtil.getExpire(redisKey(ip, URI));
 
             assertNotNull(ttl);
-            assertTrue(ttl > 0 && ttl <= 60);
+            assertTrue(ttl >= 0 && ttl <= 1);
 
         } finally {
-            redisUtil.delete(redisKey(clientId));
+            redisUtil.delete(redisKey(ip, URI));
         }
     }
 
     @Test
-    void shouldAllowRequestsAfterWindowExpires() throws Exception {
-
-        String clientId = UUID.randomUUID().toString();
-        String key = redisKey(clientId);
+    void shouldResetCounterAfterExpiry() throws Exception {
+        String ip = newClientIp();
+        String key = redisKey(ip, URI);
 
         try {
-            for (int i = 0; i < 20; i++) {
-                assertTrue(rateLimitService.isAllowed(clientId));
+            for (int i = 0; i < 10; i++) {
+                assertTrue(rateLimitService.isAllowed(ip, URI));
             }
 
-            assertFalse(rateLimitService.isAllowed(clientId));
+            assertFalse(rateLimitService.isAllowed(ip, URI));
 
-            // Simulate expiry without waiting 60 seconds.
-            redisUtil.set(key, "21", Duration.ofMillis(200));
+            // Shorten the existing TTL to simulate expiration.
+            redisUtil.set(key, "11", Duration.ofMillis(200));
 
             Thread.sleep(500);
 
-            assertTrue(rateLimitService.isAllowed(clientId));
+            assertTrue(rateLimitService.isAllowed(ip, URI));
 
         } finally {
             redisUtil.delete(key);
@@ -116,46 +136,63 @@ class PublicKeyRateLimitServiceTest {
     }
 
     @Test
-    void shouldRejectMissingClientIdentifier() {
+    void shouldRejectMissingIpOrUri() {
+        String ip = newClientIp();
 
         assertThrows(
                 IllegalArgumentException.class,
-                () -> rateLimitService.isAllowed(null)
+                () -> rateLimitService.isAllowed(null, URI)
         );
 
         assertThrows(
                 IllegalArgumentException.class,
-                () -> rateLimitService.isAllowed("")
+                () -> rateLimitService.isAllowed("", URI)
         );
 
         assertThrows(
                 IllegalArgumentException.class,
-                () -> rateLimitService.isAllowed("   ")
+                () -> rateLimitService.isAllowed(ip, null)
+        );
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> rateLimitService.isAllowed(ip, "")
         );
     }
 
     @Test
-    void shouldNotAllowRequestsWhenRedisEvaluationFails() {
+    void shouldFailClosedWhenRedisReturnsNull() {
+        RedisUtil failingRedis = mock(RedisUtil.class);
 
-        RedisUtil failingRedisUtil =
-                org.mockito.Mockito.mock(RedisUtil.class);
-
-        org.mockito.Mockito.when(
-                failingRedisUtil.incrementWithExpiry(
-                        org.mockito.ArgumentMatchers.anyString(),
-                        org.mockito.ArgumentMatchers.anyLong()
-                )
-        ).thenReturn(null);
+        when(failingRedis.incrementWithExpiry(
+                anyString(), anyLong()
+        )).thenReturn(null);
 
         PublicKeyRateLimitService service =
-                new PublicKeyRateLimitService(
-                        failingRedisUtil, 20, 60
-                );
+                new PublicKeyRateLimitService(failingRedis);
 
         assertThrows(
                 IllegalStateException.class,
-                () -> service.isAllowed("test-client")
+                () -> service.isAllowed("192.0.2.10", URI)
         );
     }
 
+    @Test
+    void shouldPropagateRedisConnectionFailures() {
+        RedisUtil failingRedis = mock(RedisUtil.class);
+
+        when(failingRedis.incrementWithExpiry(
+                anyString(), anyLong()
+        )).thenThrow(
+                new IllegalStateException("Redis unavailable")
+        );
+
+        PublicKeyRateLimitService service =
+                new PublicKeyRateLimitService(failingRedis);
+
+        assertThrows(
+                IllegalStateException.class,
+                () -> service.isAllowed("192.0.2.10", URI)
+        );
+    }
 }
