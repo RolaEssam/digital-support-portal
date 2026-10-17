@@ -104,4 +104,31 @@ class RedisUtilIntegrationTest {
             redisUtil.delete(key);
         }
     }
+
+    @Test
+    void shouldIncrementCounterAndSetExpiryAtomically() {
+
+        String key = "test:rate-limit:" + UUID.randomUUID();
+
+        try {
+            assertEquals(
+                    1L,
+                    redisUtil.incrementWithExpiry(key, 60)
+            );
+
+            Long ttl = redisUtil.getExpire(key);
+
+            assertNotNull(ttl);
+            assertTrue(ttl > 0 && ttl <= 60);
+
+            assertEquals(
+                    2L,
+                    redisUtil.incrementWithExpiry(key, 60)
+            );
+
+        } finally {
+            redisUtil.delete(key);
+        }
+    }
+
 }
