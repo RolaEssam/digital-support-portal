@@ -40,20 +40,18 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(ec.getStatus()).body(body);
     }
 
-    @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ApiResponseDto<?>> handleValidation(MethodArgumentNotValidException ex) {
-        ErrorCode ec = ex.getBindingResult().getFieldErrors().stream()
-                .findFirst()
-                .map(fe -> mapField(fe.getField(), fe.getCode()))
-                .orElse(ErrorCode.INVALID_LENGTH);
 
-        return ResponseEntity.status(ec.getStatus())
-                .body(ApiResponseDto.error(ec.getCode(), message(ec)));
+        @ExceptionHandler(MethodArgumentNotValidException.class)
+        public ResponseEntity<ApiResponseDto<?>> handleValidation(MethodArgumentNotValidException ex) {
+            ErrorCode ec = ErrorCode.VALIDATION_ERROR;
+            return ResponseEntity.status(ec.getStatus())
+                    .body(ApiResponseDto.error(ec.getCode(), message(ec)));
+
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ApiResponseDto<?>> handleUnreadable(HttpMessageNotReadableException ex) {
-        ErrorCode ec = ErrorCode.INVALID_REQUEST_ID;
+        ErrorCode ec = ErrorCode.VALIDATION_ERROR;
         return ResponseEntity.status(ec.getStatus())
                 .body(ApiResponseDto.error(ec.getCode(), message(ec)));
     }
@@ -65,19 +63,13 @@ public class GlobalExceptionHandler {
 
         ErrorCode ec = ErrorCode.INTERNAL_ERROR;
         return ResponseEntity.status(ec.getStatus())
-                .body(ApiResponseDto.error(ec.getCode(), message(ec)));
+                .body(ApiResponseDto.error(ec.getCode(), message(ec),
+                        Map.of("correlationId", correlationId)));
     }
 
-    // ---------- helpers ----------
 
-    private ErrorCode mapField(String field, String constraint) {
-        return switch (field) {
-            case "requestId" -> ErrorCode.INVALID_REQUEST_ID;
-            case "username"  -> isEmptyConstraint(constraint) ? ErrorCode.USERNAME_REQUIRED : ErrorCode.INVALID_LENGTH;
-            case "password"  -> isEmptyConstraint(constraint) ? ErrorCode.PASSWORD_REQUIRED : ErrorCode.INVALID_LENGTH;
-            default          -> ErrorCode.INVALID_LENGTH;
-        };
-    }
+
+
 
     private boolean isEmptyConstraint(String c) {
         return "NotBlank".equals(c) || "NotNull".equals(c) || "NotEmpty".equals(c);
