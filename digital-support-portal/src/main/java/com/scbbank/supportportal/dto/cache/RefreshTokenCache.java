@@ -1,6 +1,6 @@
 package com.scbbank.supportportal.dto.cache;
 
-import lombok.AllArgsConstructor;
+import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -13,8 +13,7 @@ import java.time.Instant;
 
 @Getter
 @Setter
-@NoArgsConstructor
-@AllArgsConstructor
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 @RedisHash("refresh_token")
 public class RefreshTokenCache {
 
@@ -24,8 +23,24 @@ public class RefreshTokenCache {
     @Indexed
     private Long userId;
 
+    private String role;
+
     private Instant expiresAt;
 
     @TimeToLive
     private Long ttlSeconds;
+
+    public RefreshTokenCache(String tokenHash, Long userId, String role,
+                             Instant expiresAt, long ttlSeconds) {
+        this.tokenHash = tokenHash;
+        this.userId = userId;
+        this.role = role;
+        this.expiresAt = expiresAt;
+        this.ttlSeconds = ttlSeconds;
+    }
+
+    @Override
+    public String toString() {
+        return "RefreshTokenCache[userId=" + userId + ", role=" + role + "]";
+    }
 }

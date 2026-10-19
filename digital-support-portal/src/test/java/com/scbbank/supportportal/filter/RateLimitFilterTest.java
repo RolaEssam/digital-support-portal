@@ -81,6 +81,7 @@ class RateLimitFilterTest {
                 HttpStatus.TOO_MANY_REQUESTS.value(),
                 response.getStatus()
         );
+        assertTrue(response.getContentAsString().contains("DSP-AUTH-008"));
 
         verifyNoInteractions(chain);
     }
@@ -146,5 +147,18 @@ class RateLimitFilterTest {
         );
 
         verifyNoInteractions(chain);
+    }
+
+    @Test
+    void shouldSkipHealthChecks() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/authentication/health");
+        request.setContextPath("/api/authentication");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        FilterChain chain = mock(FilterChain.class);
+
+        filter.doFilter(request, response, chain);
+
+        verify(chain).doFilter(request, response);
+        verifyNoInteractions(rateLimitService);
     }
 }

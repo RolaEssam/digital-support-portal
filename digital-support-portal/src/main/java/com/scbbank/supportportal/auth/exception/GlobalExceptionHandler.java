@@ -28,25 +28,20 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(AuthException.class)
     public ResponseEntity<ApiResponseDto<?>> handleAuth(AuthException ex) {
         ErrorCode ec = ex.getErrorCode();
-        Map<String, Object> details = ex.getDetails();
+        Map<String, Object> details = ex.getData();
         String msg = message(ec, ex.getArgs());
 
-        ApiResponseDto<?> body;
-        if (details.isEmpty()) {
-            body = ApiResponseDto.error(ec.getCode(), msg);
-        } else {
-            body = ApiResponseDto.error(ec.getCode(), msg, details);
-        }
+        ApiResponseDto<?> body = details.isEmpty()
+                ? ApiResponseDto.error(ec.getCode(), msg)
+                : ApiResponseDto.error(ec.getCode(), msg, details);
         return ResponseEntity.status(ec.getStatus()).body(body);
     }
 
-
-        @ExceptionHandler(MethodArgumentNotValidException.class)
-        public ResponseEntity<ApiResponseDto<?>> handleValidation(MethodArgumentNotValidException ex) {
-            ErrorCode ec = ErrorCode.VALIDATION_ERROR;
-            return ResponseEntity.status(ec.getStatus())
-                    .body(ApiResponseDto.error(ec.getCode(), message(ec)));
-
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ApiResponseDto<?>> handleValidation(MethodArgumentNotValidException ex) {
+        ErrorCode ec = ErrorCode.VALIDATION_ERROR;
+        return ResponseEntity.status(ec.getStatus())
+                .body(ApiResponseDto.error(ec.getCode(), message(ec)));
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
@@ -65,14 +60,6 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(ec.getStatus())
                 .body(ApiResponseDto.error(ec.getCode(), message(ec),
                         Map.of("correlationId", correlationId)));
-    }
-
-
-
-
-
-    private boolean isEmptyConstraint(String c) {
-        return "NotBlank".equals(c) || "NotNull".equals(c) || "NotEmpty".equals(c);
     }
 
     private String message(ErrorCode ec, Object... args) {
