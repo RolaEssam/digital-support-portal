@@ -1,0 +1,44 @@
+
+spring:
+  application:
+    name: digital-support-portal
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      connect-timeout: 3s
+      ssl:
+        enabled: ${REDIS_SSL_ENABLED:false}
+
+server:
+  port: 8081
+  servlet:
+    context-path: /api/authentication
+
+auth:
+  public-key:
+    rsa-key-size: 2048
+    key-ttl: 300s
+
+  rate-limit:
+    max-requests: 10
+    window: 60s
+
+  login:
+    max-attempts: 5
+    lock-duration: 15m
+    attempt-window: 15m
+    max-field-length: 100
+
+  token:
+    access-ttl: 15m
+    refresh-ttl: 8h
+    issuer: ${JWT_ISSUER:https://scbbank.com/support-portal}
+    audience: ${JWT_AUDIENCE:support-portal-api}
+    cookie-secure: ${JWT_COOKIE_SECURE:false}
+    private-key: ${JWT_PRIVATE_KEY:}
+    public-key: ${JWT_PUBLIC_KEY:}
+
+  encryption:
+    key: ${DSP_AES_KEY:}
