@@ -26,9 +26,19 @@ auth:
     window: 60s
 
   login:
-    max-failed-attempts: 5
-    lockout-duration: 15m
-    idle-timeout: 30m
+    max-attempts: 5
+    lock-duration: 15m
+    attempt-window: 15m
+    max-field-length: 100
+
+  token:
+    access-ttl: 15m
+    refresh-ttl: 8h
+    issuer: ${JWT_ISSUER:https://scbbank.com/support-portal}
+    audience: ${JWT_AUDIENCE:support-portal-api}
+    cookie-secure: ${JWT_COOKIE_SECURE:false}
+    private-key: ${JWT_PRIVATE_KEY:}
+    public-key: ${JWT_PUBLIC_KEY:}
 
   encryption:
     key: ${DSP_AES_KEY:}

@@ -28,9 +28,25 @@ auth:
     window: ${AUTH_RATE_LIMIT_WINDOW:60s}
 
   login:
-    max-failed-attempts: ${AUTH_MAX_FAILED_ATTEMPTS:5}
-    lockout-duration: ${AUTH_LOCKOUT_DURATION:15m}
-    idle-timeout: ${AUTH_IDLE_TIMEOUT:30m}
+    max-attempts: ${AUTH_MAX_FAILED_ATTEMPTS:5}
+    lock-duration: ${AUTH_LOCKOUT_DURATION:15m}
+    attempt-window: ${AUTH_ATTEMPT_WINDOW:15m}
+    max-field-length: ${AUTH_MAX_FIELD_LENGTH:100}
+
+  token:
+    access-ttl: ${JWT_ACCESS_TTL:15m}
+    refresh-ttl: ${JWT_REFRESH_TTL:8h}
+    issuer: ${JWT_ISSUER}
+    audience: ${JWT_AUDIENCE}
+    cookie-secure: true
+    private-key: ${JWT_PRIVATE_KEY}
+    public-key: ${JWT_PUBLIC_KEY}
 
   encryption:
     key: ${DSP_AES_KEY}
+
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false

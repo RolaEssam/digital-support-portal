@@ -1,6 +1,7 @@
 
 package com.scbbank.supportportal.dto.base;
 
+import com.scbbank.supportportal.dto.base.ApiResponseDto;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
