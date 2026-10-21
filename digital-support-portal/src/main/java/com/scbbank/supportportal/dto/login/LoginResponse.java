@@ -1,23 +1,30 @@
 package com.scbbank.supportportal.dto.login;
-import com.fasterxml.jackson.annotation.JsonInclude;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.scbbank.supportportal.dto.token.TokenPair;
-@JsonInclude(JsonInclude.Include.NON_NULL)
-public record LoginResponse(String accessToken,
-                            String refreshToken,
+
+/**
+ * Login result. Tokens are @JsonIgnore'd: they travel in the Authorization header
+ * and the DSP_RT cookie, never in the JSON body.
+ */
+public record LoginResponse(@JsonIgnore String accessToken,
+                            @JsonIgnore String refreshToken,
                             long expiresIn,
-                            String tokenType) {
+                            long idleTimeout,
+                            String homeRoute,
+                            UserSummary user) {
 
-    public static LoginResponse of(TokenPair pair) {
-        return new LoginResponse(pair.accessToken(), pair.refreshToken(), pair.expiresIn(), "Bearer");
+    public static LoginResponse of(TokenPair pair, long idleTimeout, String homeRoute, UserSummary user) {
+        return new LoginResponse(pair.accessToken(), pair.refreshToken(), pair.expiresIn(),
+                idleTimeout, homeRoute, user);
     }
 
-    public LoginResponse withoutRefreshToken() {
-        return new LoginResponse(accessToken, null, expiresIn, tokenType);
-    }
+    public record UserSummary(long userId, String username, String role) {}
+
     // Tokens must never reach logs.
     @Override
     public String toString() {
-        return "LoginResponse[expiresIn=" + expiresIn + ", tokenType=" + tokenType + "]";
+        return "LoginResponse[expiresIn=" + expiresIn + ", idleTimeout=" + idleTimeout
+                + ", homeRoute=" + homeRoute + ", user=" + user + "]";
     }
 }

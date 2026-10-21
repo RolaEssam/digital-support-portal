@@ -76,7 +76,11 @@ public class LoginService {
         loginAttempts.reset(username);
         UserRecord user = found.get();
         TokenPair pair = tokenService.issueTokens(new AuthUser(user.id(), user.role()));
-        return LoginResponse.of(pair);
+        return LoginResponse.of(
+                pair,
+                props.idleTimeout().toSeconds(),
+                props.homeRoute(),
+                new LoginResponse.UserSummary(user.id(), username, String.valueOf(user.role())));
     }
 
     private UUID parseRequestId(String requestId) {
