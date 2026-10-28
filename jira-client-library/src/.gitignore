@@ -1,0 +1,24 @@
+
+
+# Maven generated files
+target/
+
+# IDE files
+.idea/
+.vscode/
+*.iml
+
+# Local secrets and environment files
+.env
+.env.*
+*.local.properties
+secrets/
+*.pem
+*.key
+
+# Mentor reference project
+mentor-reference/
+
+# OS files
+.DS_Store
+Thumbs.db
