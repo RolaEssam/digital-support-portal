@@ -64,7 +64,8 @@ class LoginServiceTest {
     // Real classes
     private final PasswordEncoder encoder = new BCryptPasswordEncoder(4);   // low cost = fast tests
     private final LoginProperties props =
-            new LoginProperties(5, Duration.ofMinutes(15), Duration.ofMinutes(15), 100);
+            new LoginProperties(5, Duration.ofMinutes(15), Duration.ofMinutes(15), 100,
+                    Duration.ofMinutes(30), "/home");
 
     private final Map<String, String> fakeRedis = new HashMap<>();
     private final Map<String, LoginAttemptCache> attemptStore = new HashMap<>();
@@ -147,7 +148,7 @@ class LoginServiceTest {
         assertEquals("access-token", res.accessToken());
         assertEquals("refresh-token", res.refreshToken());
         assertEquals(900, res.expiresIn());
-        assertEquals("Bearer", res.tokenType());
+
         verify(tokenService).issueTokens(argThat(u -> u.userId().equals(1042L) && u.role().equals("AGENT")));
     }
 
@@ -353,7 +354,7 @@ class LoginServiceTest {
         assertFalse(req.toString().contains(req.password()));
         assertFalse(req.toString().contains(req.username()));
 
-        LoginResponse res = new LoginResponse("secret-access", "secret-refresh", 900, "Bearer");
-        assertFalse(res.toString().contains("secret"));
+        LoginResponse res = new LoginResponse("secret-access", "secret-refresh", 900, 1800, "/home",
+                new LoginResponse.UserSummary(1042L, "mona.hassan", "AGENT"));
     }
 }

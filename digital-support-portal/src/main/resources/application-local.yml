@@ -2,7 +2,18 @@
 spring:
   application:
     name: digital-support-portal
-
+  datasource:
+    url: jdbc:sqlserver://${DB_HOST:localhost}:${DB_PORT:1433};databaseName=${DB_NAME:TicketingSystem};encrypt=true;trustServerCertificate=true
+    username: ${DB_USERNAME:}
+    password: ${DB_PASSWORD:}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
   data:
     redis:
       host: ${REDIS_HOST:localhost}

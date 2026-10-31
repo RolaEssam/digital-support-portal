@@ -61,22 +61,20 @@ class LoginDtoValidationTest {
 
     @Test
     void response_of_mapsTokenPair() {
-        LoginResponse r = LoginResponse.of(new TokenPair("a", "r", 900));
+        LoginResponse.UserSummary user = new LoginResponse.UserSummary(1042L, "mona.hassan", "AGENT");
+        LoginResponse r = LoginResponse.of(new TokenPair("a", "r", 900), 1800, "/home", user);
         assertEquals("a", r.accessToken());
         assertEquals("r", r.refreshToken());
         assertEquals(900, r.expiresIn());
-        assertEquals("Bearer", r.tokenType());
-    }
-
-    @Test
-    void response_withoutRefreshToken_removesOnlyThat() {
-        LoginResponse r = new LoginResponse("a", "r", 900, "Bearer").withoutRefreshToken();
-        assertNull(r.refreshToken());
-        assertEquals("a", r.accessToken());
+        assertEquals(1800, r.idleTimeout());
+        assertEquals("/home", r.homeRoute());
+        assertEquals(user, r.user());
     }
 
     @Test
     void response_toString_hidesTokens() {
-        assertFalse(new LoginResponse("secret-a", "secret-r", 1, "Bearer").toString().contains("secret"));
+        LoginResponse r = new LoginResponse("secret-a", "secret-r", 1, 1800, "/home",
+                new LoginResponse.UserSummary(1042L, "mona.hassan", "AGENT"));
+        assertFalse(r.toString().contains("secret"));
     }
 }
