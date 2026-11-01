@@ -45,7 +45,7 @@ public class DbAuditService  {
             row.setRole(cut(clean(e.role()), 20));
             row.setResource(cut(clean(e.endpoint()), 255));
             row.setOutcome("DENIED");   // only ACCESS_DENIED exists today; change when you add more actions
-            row.setIpAddress(null);     // AuditEvent has no IP yet
+
             row.setCreatedAt(e.timestamp() != null ? e.timestamp() : Instant.now());
             repository.save(row);
         } catch (Exception ex) {

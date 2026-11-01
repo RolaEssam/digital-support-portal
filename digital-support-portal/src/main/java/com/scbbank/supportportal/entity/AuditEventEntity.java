@@ -40,7 +40,7 @@ public class AuditEventEntity {
     @Column(nullable = false, length = 20)
     private String outcome;
 
- 
+
 
     @JdbcTypeCode(SqlTypes.TIMESTAMP)
     @Column(name = "created_at", nullable = false, updatable = false)
